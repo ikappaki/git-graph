@@ -1,4 +1,5 @@
 import datetime
+import shutil
 
 import graphviz
 
@@ -72,69 +73,77 @@ class DotGraph(graphviz.Digraph):
         graphviz.Digraph.__init__(self, name='auto',
                                   graph_attr={'bgcolor': 'transparent'},
                                   node_attr={'style': 'filled',
-                                             'fixedsize': 'true',
-                                             'width': '0.95'})
+                                             # 'fixedsize': 'true',
+                                             # 'width': '0.95'
+                                  })
         self.git_path = git_path
         git_graph = gg.GitGraph(self.git_path).build_graph()
         nodes = handle_specific_node_sets(nodes)
         node_set = filter_nodes(git_graph, nodes)
         if 'b' in nodes:
-            for b in git_graph.blobs:
-                self.node(b, label=b[:SHORT], fillcolor="#9ccc66")  # green
+            for b in git_graph.blobs.keys():
+                contents = git_graph.blobs[b]
+                self.node(b, label=":blob\n" + b[:SHORT], fillcolor="#9ccc66")  # green
+                cn = b + "-c"
+                self.node(cn, label="\l".join(contents).replace("<", "&lt;").replace(">", "&gt;"), shape="record")
+                self.edge(b, cn)
         if 't' in nodes:
             for t in git_graph.trees:
-                self.node(t, label=t[:SHORT], fillcolor="#bc9b8f")  # brown
+                self.node(t, label=":tree\n" + t[:SHORT], fillcolor="#bc9b8f")  # brown
                 for e in git_graph.trees[t]:
                     if e[0] in node_set:
-                        self.edge(t, e[0])
+                        self.edge(t, e[0], label=e[1])
         if 'c' in nodes:
             for c in git_graph.commits:
-                self.node(c, label=c[:SHORT], fillcolor="#85d5fa")  # blue
-                for e in git_graph.commits[c]:
+                details = git_graph.commits[c]
+                top = details[":nodes"]
+                msg = details[":msg"]
+                self.node(c, label=":commit\n" + c[:SHORT] + "\n:msg " + msg, fillcolor="#85d5fa")  # blue
+                for e in top:
                     if e in node_set:
                         self.edge(c, e)
         if 'l' in nodes:
             for l in git_graph.local_branches:
-                self.node(l, label=l[:SHORT], fillcolor="#9999ff")  # violet
+                self.node(l, label=":local-branch\n" + l[:SHORT], fillcolor="#9999ff")  # violet
                 e = git_graph.local_branches[l]
                 if e in node_set:
                     self.edge(l, e)
         if 'h' in nodes:
             h = git_graph.local_head[0]
-            self.node(h, label=h[:SHORT], fillcolor="#e6ccff")  # pale violet
+            self.node(h, label=":local-head\n" + h[:SHORT], fillcolor="#e6ccff")  # pale violet
             e = git_graph.local_head[1]
             if e in node_set:
                 self.edge(h, e)
         if 'r' in nodes:
             for r in git_graph.remote_branches:
-                self.node(r, label=r[r.find('/') + 1:][:SHORT],
+                self.node(r, label=":remote-branch\n" + r[r.find('/') + 1:][:SHORT],
                           fillcolor="#ffa366")  # orange
                 e = git_graph.remote_branches[r]
                 if e in node_set:
                     self.edge(r, e)
         if 'd' in nodes:
             for d in git_graph.remote_heads:
-                self.node(d, label=d[d.find('/') + 1:][:SHORT],
+                self.node(d, label=":remote-head\n" + d[d.find('/') + 1:][:SHORT],
                           fillcolor="#ffbeb3")  # pale orange
                 e = git_graph.remote_heads[d]
                 if e in node_set:
                     self.edge(d, e)
         if 's' in nodes:
             for s in git_graph.remote_servers:
-                self.node(s, label=s[:SHORT], fillcolor="#ff6666")  # red
+                self.node(s, label=":remote-server\n" + s[:SHORT], fillcolor="#ff6666")  # red
                 for e in git_graph.remote_servers[s]:
                     if e in node_set:
                         self.edge(s, e)
         if 'a' in nodes:
             for a in git_graph.annotated_tags:
-                self.node(a, label=a[:SHORT],
+                self.node(a, label=":annotated-tag\n" + a[:SHORT],
                           fillcolor="#ffdf80")  # pale yellow
                 e = git_graph.annotated_tags[a]
                 if e in node_set:
                     self.edge(a, e)
         if 'g' in nodes:
             for g in git_graph.tags:
-                self.node(g, label=g[:SHORT], fillcolor="#ffc61a")  # yellow
+                self.node(g, label=":tag\n" + g[:SHORT], fillcolor="#ffc61a")  # yellow
                 e = git_graph.tags[g]
                 if e in node_set:
                     self.edge(g, e)
@@ -157,4 +166,5 @@ class DotGraph(graphviz.Digraph):
         else:
             self.view(dot_file)
         image_file_name = dot_file_name + '.' + self.format
+        shutil.copyfile(git_graph_path / image_file_name, git_graph_path / ("latest." + self.format))
         return image_file_name

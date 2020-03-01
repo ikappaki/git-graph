@@ -8,7 +8,8 @@ def build_git_trees(path, trees):
     result = c.defaultdict(list)
     pattern = '(tree|blob) (.+)\t(.+)'
     for each_tree in trees:
-        for each_line in gf.read_git_file(path, each_tree):
+        lines = gf.read_git_file(path, each_tree)
+        for each_line in lines:
             match = re.search(pattern, each_line)
             if match:
                 result[each_tree].append((match.group(2), match.group(3)))
@@ -16,13 +17,19 @@ def build_git_trees(path, trees):
 
 
 def build_git_commits(path, commits):
-    result = c.defaultdict(list)
+    result = c.defaultdict(dict)
     pattern = '(tree|parent) (.+)'
     for each_commit in commits:
-        for each_line in gf.read_git_file(path, each_commit):
+        lines = gf.read_git_file(path, each_commit)
+        msg = lines[-1]
+        nodes = []
+        for each_line in lines:
             match = re.search(pattern, each_line)
             if match:
-                result[each_commit].append(match.group(2))
+                nodes.append(match.group(2))
+        result[each_commit] = {":nodes" : nodes,
+                               ":msg" : msg}
+
     return result
 
 
@@ -53,7 +60,7 @@ class GitGraph:
     def __init__(self, path):
         self.path = path
         # b: -> nothing
-        self.blobs = []
+        self.blobs = {}
         # t: -> 0 to N blobs and 0 to N trees
         self.trees = c.defaultdict(list)
         # c: -> 1 tree and 0 to N commits

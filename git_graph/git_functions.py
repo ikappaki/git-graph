@@ -31,7 +31,10 @@ def get_git_objects(path):
     trees = [obj[0] for obj in objects if obj[1] == 'tree']
     commits = [obj[0] for obj in objects if obj[1] == 'commit']
     annotated_tags = [obj[0] for obj in objects if obj[1] == 'tag']
-    return blobs, trees, commits, annotated_tags
+    blob_details = {}
+    for blob in blobs:
+        blob_details[blob] = execute_git_command(path, 'cat-file -p ' + blob)
+    return blob_details, trees, commits, annotated_tags
 
 
 def get_git_references(path):
